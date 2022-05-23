@@ -1,9 +1,11 @@
 package main
 
 import (
-	"fmt"
+	database "task-tracker-api/src/database"
+	router "task-tracker-api/src/router"
 )
 
 func main() {
-	fmt.Println("Task Tracker")
+	database.ConnectDB()
+	router.InitRouter()
 }
