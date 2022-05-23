@@ -19,7 +19,9 @@ func InitRouter() {
 
 	authorized.Use(middleware.JwtAuthMiddleware())
 	{
-		authorized.POST("/reset-password", auth.ResetPassword)
+		authorized.POST("/change-password", auth.ChangePassword)
+		authorized.POST("/send-code", auth.SendCode)
+		authorized.POST("/verify-code", auth.VerifyCode)
 		// add here endpoints
 	}
 
