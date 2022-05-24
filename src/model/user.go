@@ -10,4 +10,5 @@ type Users struct {
 	Email    string `gorm:"size:255;not null;unique" json:"email"`
 	Password string `gorm:"size:255;not null;" json:"password"`
 	Verified bool   `gorm:"default:false" json:"is_verified"`
+	Tasks []Task 		`gorm:"foreignKey:UserId"`
 }
