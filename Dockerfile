@@ -11,8 +11,9 @@ COPY . .
 
 ENV PORT 8000
 ENV DB_HOST localhost
-ENV DB_NAME tasks
+ENV DB_NAME Todos
 ENV DB_USER postgres
+ENV DB_PASS superuser
 ENV DB_PORT 5432
 ENV TOKEN_LIFE 15
 ENV TOKEN_SECRET task-tracker-secret
