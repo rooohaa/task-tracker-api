@@ -40,6 +40,7 @@ func ConnectDB() {
 	}
 
 	db.AutoMigrate(&model.Users{})
+	db.AutoMigrate(&model.Task{})
 	// add here migrations
 
 	GetDB = db
