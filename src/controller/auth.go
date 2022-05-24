@@ -1,4 +1,4 @@
-package auth
+package controller
 
 import (
 	"fmt"
@@ -14,11 +14,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Register(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	password := ctx.PostForm("password")
+type RegisterInput struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
 
-	if len(email) == 0 || len(password) == 0 {
+func Register(ctx *gin.Context) {
+	var input RegisterInput
+
+	err := ctx.ShouldBindJSON(&input)
+
+	if err != nil {
 		ctx.JSON(400, gin.H{
 			"message": "Email and password are required fields",
 		})
@@ -28,9 +34,9 @@ func Register(ctx *gin.Context) {
 
 	user := model.Users{}
 
-	user.Email = email
+	user.Email = input.Email
 
-	hashedPassword := utils.HashPassword(ctx, password)
+	hashedPassword := utils.HashPassword(ctx, input.Password)
 
 	if len(hashedPassword) == 0 {
 		return
@@ -63,13 +69,19 @@ func Register(ctx *gin.Context) {
 	})
 }
 
-func Login(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	password := ctx.PostForm("password")
+type LoginInput struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
 
-	if len(email) == 0 || len(password) == 0 {
+func Login(ctx *gin.Context) {
+	var input LoginInput
+
+	err := ctx.ShouldBindJSON(&input)
+
+	if err != nil {
 		ctx.JSON(400, gin.H{
-			"message": "Email and password are required fields",
+			"message": "User is already been created",
 		})
 
 		return
@@ -77,7 +89,7 @@ func Login(ctx *gin.Context) {
 
 	user := model.Users{}
 
-	errCheck := database.GetDB.Model(&user).Where("email = ?", email).Take(&user).Error
+	errCheck := database.GetDB.Model(&user).Where("email = ?", input.Email).Take(&user).Error
 
 	if errCheck != nil {
 		ctx.JSON(400, gin.H{
@@ -87,7 +99,7 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	errVerify := utils.VerifyPassword(password, user.Password)
+	errVerify := utils.VerifyPassword(input.Password, user.Password)
 
 	if errVerify != nil && errVerify == bcrypt.ErrMismatchedHashAndPassword {
 		ctx.JSON(401, gin.H{
@@ -113,21 +125,28 @@ func Login(ctx *gin.Context) {
 	})
 }
 
-func ChangePassword(ctx *gin.Context) {
-	userId := utils.ExtractTokenID(ctx)
-	password := ctx.PostForm("password")
+type ChangePasswordInput struct {
+	Password string `json:"password" binding:"required"`
+}
 
-	if len(password) == 0 {
+func ChangePassword(ctx *gin.Context) {
+	var input ChangePasswordInput
+
+	err := ctx.ShouldBindJSON(&input)
+
+	if err != nil {
 		ctx.JSON(400, gin.H{
-			"message": "Password are required fields",
+			"message": "User password should be sent",
 		})
 
 		return
 	}
 
+	userId := utils.ExtractTokenID(ctx)
+
 	user := model.Users{}
 
-	hashedPassword := utils.HashPassword(ctx, password)
+	hashedPassword := utils.HashPassword(ctx, input.Password)
 
 	errReset := database.GetDB.Model(&user).Where("id = ?", userId).Update("password", hashedPassword).Error
 
@@ -147,6 +166,10 @@ func ChangePassword(ctx *gin.Context) {
 var verification = make(map[string]string)
 var timer *time.Timer
 
+type SendCodeInput struct {
+	Email string `json:"email" binding:"required"`
+}
+
 func SendCode(ctx *gin.Context) {
 	errorENV := godotenv.Load()
 
@@ -154,13 +177,23 @@ func SendCode(ctx *gin.Context) {
 		fmt.Println("Failed to load env file")
 	}
 
-	email := ctx.PostForm("email")
+	var input SendCodeInput
+
+	err := ctx.ShouldBindJSON(&input)
+
+	if err != nil {
+		ctx.JSON(400, gin.H{
+			"message": "User email should be sent",
+		})
+
+		return
+	}
 
 	from := os.Getenv("EMAIL_FROM")
 	password := os.Getenv("EMAIL_PASSWORD")
 
 	to := []string{
-		email,
+		input.Email,
 	}
 
 	smtpHost := "smtp.gmail.com"
@@ -174,8 +207,8 @@ func SendCode(ctx *gin.Context) {
 		})
 	}
 
-	verification[email] = otpCode
-	StartDeleteOTP(email)
+	verification[input.Email] = otpCode
+	StartDeleteOTP(input.Email)
 
 	message := []byte("This is a code for verification of user " + otpCode)
 
@@ -196,21 +229,27 @@ func SendCode(ctx *gin.Context) {
 	})
 }
 
-func VerifyCode(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	code := ctx.PostForm("code")
+type VerifyCodeInput struct {
+	Email string `json:"email" binding:"required"`
+	Code  string `json:"code" binding:"required"`
+}
 
-	if len(code) == 0 || len(email) == 0 {
+func VerifyCode(ctx *gin.Context) {
+	var input VerifyCodeInput
+
+	err := ctx.ShouldBindJSON(&input)
+
+	if err != nil {
 		ctx.JSON(400, gin.H{
-			"message": "Email and code fields are required",
+			"message": "User email and code should be sent",
 		})
 
 		return
 	}
 
-	if verification[email] == code {
+	if verification[input.Email] == input.Code {
 		user := model.Users{}
-		errVerify := database.GetDB.Model(&user).Where("email = ?", email).Update("verified", true).Error
+		errVerify := database.GetDB.Model(&user).Where("email = ?", input.Email).Update("verified", true).Error
 
 		if errVerify != nil {
 			ctx.JSON(400, gin.H{
@@ -220,7 +259,7 @@ func VerifyCode(ctx *gin.Context) {
 			return
 		}
 
-		delete(verification, email)
+		delete(verification, input.Email)
 		defer timer.Stop()
 
 		ctx.JSON(200, gin.H{

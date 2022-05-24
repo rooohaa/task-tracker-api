@@ -55,12 +55,6 @@ func TokenValid(ctx *gin.Context) error {
 }
 
 func ExtractToken(ctx *gin.Context) string {
-	token := ctx.Query("token")
-
-	if token != "" {
-		return token
-	}
-
 	bearerToken := ctx.Request.Header.Get("Authorization")
 
 	if len(strings.Split(bearerToken, " ")) == 2 {
